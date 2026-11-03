@@ -1,0 +1,144 @@
+x-main: &main
+  MPRP_ENVIRONMENT_ID: ${MPRP_ENVIRONMENT_ID:?Run init}
+  MPRP_SERVICE_KEY_ID: ${MPRP_SERVICE_KEY_ID:-local-v1}
+  MPRP_PREVIOUS_SERVICE_KEY_ID: ${MPRP_PREVIOUS_SERVICE_KEY_ID:-}
+  MPRP_PREVIOUS_SERVICE_KEY_SECRET: ${MPRP_PREVIOUS_SERVICE_KEY_SECRET:-}
+  MPRP_PREVIOUS_SERVICE_KEY_ACTIVE_FROM: ${MPRP_PREVIOUS_SERVICE_KEY_ACTIVE_FROM:-}
+  MPRP_PREVIOUS_SERVICE_KEY_EXPIRES_AT: ${MPRP_PREVIOUS_SERVICE_KEY_EXPIRES_AT:-}
+  MPRP_SERVICE_KEY_ACTIVE_FROM: ${MPRP_SERVICE_KEY_ACTIVE_FROM}
+  MPRP_SERVICE_KEY_EXPIRES_AT: ${MPRP_SERVICE_KEY_EXPIRES_AT}
+  MPRP_SERVICE_SECRET: ${MPRP_SERVICE_SECRET:?Run init}
+  MPRP_ENCRYPTION_KEY: ${MPRP_ENCRYPTION_KEY:?Run init}
+  MPRP_ENCRYPTION_KEY_ID: ${MPRP_ENCRYPTION_KEY_ID:-v1}
+  MPRP_ENCRYPTION_PREVIOUS_KEYS: ${MPRP_ENCRYPTION_PREVIOUS_KEYS:-}
+  MPRP_DB_URL: jdbc:postgresql://main-postgres:5432/mprp
+  MPRP_DB_USER: mprp_runtime
+  MPRP_DB_PASSWORD: ${MAIN_RUNTIME_PASSWORD}
+  MPRP_KAFKA: kafka:9092
+  MPRP_SIMULATOR_URL: http://simulator:8081
+  SPRING_MAIL_HOST: mailpit
+  SPRING_MAIL_PORT: 1025
+  MPRP_WORKER: "false"
+x-simulator: &sim
+  MPRP_ENVIRONMENT_ID: ${MPRP_ENVIRONMENT_ID}
+  MPRP_SERVICE_KEY_ID: ${MPRP_SERVICE_KEY_ID:-local-v1}
+  MPRP_PREVIOUS_SERVICE_KEY_ID: ${MPRP_PREVIOUS_SERVICE_KEY_ID:-}
+  MPRP_PREVIOUS_SERVICE_KEY_SECRET: ${MPRP_PREVIOUS_SERVICE_KEY_SECRET:-}
+  MPRP_PREVIOUS_SERVICE_KEY_ACTIVE_FROM: ${MPRP_PREVIOUS_SERVICE_KEY_ACTIVE_FROM:-}
+  MPRP_PREVIOUS_SERVICE_KEY_EXPIRES_AT: ${MPRP_PREVIOUS_SERVICE_KEY_EXPIRES_AT:-}
+  MPRP_SERVICE_KEY_ACTIVE_FROM: ${MPRP_SERVICE_KEY_ACTIVE_FROM}
+  MPRP_SERVICE_KEY_EXPIRES_AT: ${MPRP_SERVICE_KEY_EXPIRES_AT}
+  MPRP_SERVICE_SECRET: ${MPRP_SERVICE_SECRET}
+  SIMULATOR_DB_URL: jdbc:postgresql://simulator-postgres:5432/simulator
+  SIMULATOR_DB_USER: simulator_runtime
+  SIMULATOR_DB_PASSWORD: ${SIM_RUNTIME_PASSWORD}
+  SERVER_PORT: 8081
+  MPRP_CALLBACK_ORIGIN: http://web:8180
+services:
+  main-postgres:
+    build: docker/postgres
+    image: ${COMPOSE_PROJECT_NAME}-postgres:17.11
+    environment:
+      POSTGRES_DB: mprp
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${MAIN_ADMIN_PASSWORD}
+      DB_OWNER_USER: mprp_owner
+      DB_OWNER_PASSWORD: ${MAIN_OWNER_PASSWORD}
+      DB_RUNTIME_USER: mprp_runtime
+      DB_RUNTIME_PASSWORD: ${MAIN_RUNTIME_PASSWORD}
+      DB_PURGE_USER: mprp_purge
+      DB_PURGE_PASSWORD: ${MAIN_PURGE_PASSWORD}
+    volumes: [main-data:/var/lib/postgresql/data]
+    healthcheck: {test: [CMD-SHELL, 'pg_isready -h 127.0.0.1 -U postgres -d mprp'], interval: 2s, timeout: 3s, retries: 30}
+    networks: [private]
+  simulator-postgres:
+    build: docker/postgres
+    image: ${COMPOSE_PROJECT_NAME}-postgres:17.11
+    environment:
+      POSTGRES_DB: simulator
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${SIM_ADMIN_PASSWORD}
+      DB_OWNER_USER: simulator_owner
+      DB_OWNER_PASSWORD: ${SIM_OWNER_PASSWORD}
+      DB_RUNTIME_USER: simulator_runtime
+      DB_RUNTIME_PASSWORD: ${SIM_RUNTIME_PASSWORD}
+      DB_PURGE_USER: simulator_purge
+      DB_PURGE_PASSWORD: ${SIM_PURGE_PASSWORD}
+    volumes: [simulator-data:/var/lib/postgresql/data]
+    healthcheck: {test: [CMD-SHELL, 'pg_isready -h 127.0.0.1 -U postgres -d simulator'], interval: 2s, timeout: 3s, retries: 30}
+    networks: [private]
+  kafka:
+    mem_limit: 512m
+    image: apache/kafka:4.2.2@sha256:1213eb3943d551e5ed1fca7a4e109001cee35770b66a02a0c37a8964efe09b69
+    environment:
+      KAFKA_HEAP_OPTS: -Xms128m -Xmx256m
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_LISTENERS: PLAINTEXT://:9092,CONTROLLER://:9093
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:9093
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_LOG_RETENTION_HOURS: 168
+      KAFKA_MESSAGE_MAX_BYTES: 262144
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "false"
+      KAFKA_LOG_DIRS: /var/lib/kafka/data
+      CLUSTER_ID: ${KAFKA_CLUSTER_ID}
+    volumes: [kafka-data:/var/lib/kafka/data]
+    networks: [private]
+  mailpit:
+    image: axllent/mailpit:v1.32.0@sha256:0790692be935ea4420d085694f7985b1f692ca6a8771ab0e0bd8ba75ac180498
+    environment: {MP_DATABASE: /data/mailpit.db, MP_MAX_MESSAGES: 1000}
+    ports: ["127.0.0.1:${MAIL_PORT:-8026}:8025"]
+    volumes: [mail-data:/data]
+    networks: [private, edge]
+  web:
+    mem_limit: 512m
+    build: {context: ., args: {MODULE: application}}
+    image: ${COMPOSE_PROJECT_NAME}-application:1.0.0
+    environment: *main
+    ports: ["127.0.0.1:${WEB_PORT:-8180}:8180"]
+    depends_on: {main-postgres: {condition: service_healthy}, simulator: {condition: service_started}, kafka: {condition: service_started}}
+    networks: [private, edge]
+    stop_grace_period: 35s
+  worker:
+    mem_limit: 512m
+    image: ${COMPOSE_PROJECT_NAME}-application:1.0.0
+    environment:
+      <<: *main
+      MPRP_WORKER: "true"
+    depends_on: {main-postgres: {condition: service_healthy}, simulator: {condition: service_started}, kafka: {condition: service_started}}
+    networks: [private]
+    stop_grace_period: 35s
+  simulator:
+    mem_limit: 384m
+    build: {context: ., args: {MODULE: simulator}}
+    image: ${COMPOSE_PROJECT_NAME}-simulator:1.0.0
+    environment: *sim
+    depends_on: {simulator-postgres: {condition: service_healthy}}
+    networks: [private]
+    stop_grace_period: 35s
+  simulator-worker:
+    mem_limit: 384m
+    image: ${COMPOSE_PROJECT_NAME}-simulator:1.0.0
+    environment:
+      <<: *sim
+      SIMULATOR_WORKER: "true"
+    depends_on: {simulator-postgres: {condition: service_healthy}}
+    networks: [private]
+    stop_grace_period: 35s
+volumes:
+  main-data:
+  simulator-data:
+  kafka-data:
+  mail-data:
+networks:
+  private:
+    internal: true
+
+  edge:
+    internal: false

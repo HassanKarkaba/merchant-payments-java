@@ -1,0 +1,5 @@
+.local/
+target/
+*.log
+.idea/
+.DS_Store

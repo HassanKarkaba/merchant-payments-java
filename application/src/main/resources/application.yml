@@ -1,0 +1,84 @@
+spring:
+  application:
+    name: merchant-payments-java
+  mail:
+    host: ${MPRP_MAIL_HOST:mailpit}
+    port: ${MPRP_MAIL_PORT:1025}
+    properties:
+      mail.smtp.connectiontimeout: 2000
+      mail.smtp.timeout: 5000
+      mail.smtp.writetimeout: 5000
+  datasource:
+    url: ${MPRP_DB_URL:jdbc:postgresql://main-postgres:5432/mprp}
+    username: ${MPRP_DB_USER:mprp_runtime}
+    password: ${MPRP_DB_PASSWORD}
+    hikari:
+      connection-init-sql: SET lock_timeout='2s'; SET statement_timeout='5s'
+      maximum-pool-size: 12
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: validate
+  flyway:
+    enabled: false
+  session:
+    jdbc:
+      initialize-schema: never
+    timeout: 30m
+  kafka:
+    bootstrap-servers: ${MPRP_KAFKA:kafka:9092}
+    consumer:
+      enable-auto-commit: false
+      auto-offset-reset: earliest
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      properties:
+        max.poll.records: 50
+    producer:
+      acks: all
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.apache.kafka.common.serialization.StringSerializer
+      properties:
+        enable.idempotence: true
+        max.request.size: 262144
+        delivery.timeout.ms: 10000
+        request.timeout.ms: 5000
+    listener:
+      ack-mode: manual_immediate
+  servlet:
+    multipart:
+      max-file-size: 5MB
+      max-request-size: 6MB
+server:
+  port: 8180
+  shutdown: graceful
+  servlet:
+    session:
+      cookie:
+        http-only: true
+        same-site: lax
+  tomcat:
+    max-http-form-post-size: 64KB
+spring.lifecycle.timeout-per-shutdown-phase: 30s
+mprp:
+  mode: ${MPRP_MODE:SANDBOX}
+  currency: ${MPRP_CURRENCY:USD}
+  schema-version: ${MPRP_SCHEMA_VERSION:1}
+  policy-version: ${MPRP_POLICY_VERSION:mprp_v1}
+  environment-id: ${MPRP_ENVIRONMENT_ID}
+  service-secret: ${MPRP_SERVICE_SECRET}
+  encryption-key: ${MPRP_ENCRYPTION_KEY}
+  encryption-key-id: ${MPRP_ENCRYPTION_KEY_ID:v1}
+  encryption-previous-keys: ${MPRP_ENCRYPTION_PREVIOUS_KEYS:}
+  simulator-url: ${MPRP_SIMULATOR_URL:http://simulator:8181}
+  worker: ${MPRP_WORKER:false}
+  command: ${MPRP_COMMAND:serve}
+spring.task.scheduling.pool.size: 6
+
+spring.kafka.listener.concurrency: 3
+
+server.tomcat.connection-timeout: 5s
+server.tomcat.keep-alive-timeout: 15s
+server.tomcat.max-connections: 200
+server.tomcat.threads.max: 100
+server.max-http-request-header-size: 16KB

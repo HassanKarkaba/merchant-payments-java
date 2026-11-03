@@ -1,0 +1,34 @@
+server:
+  port: ${SERVER_PORT:8081}
+  shutdown: graceful
+spring:
+  application:
+    name: mprp-simulator
+  datasource:
+    url: ${SIMULATOR_DB_URL:jdbc:postgresql://simulator-postgres:5432/simulator}
+    username: ${SIMULATOR_DB_USER:simulator_runtime}
+    password: ${SIMULATOR_DB_PASSWORD}
+    hikari:
+      connection-init-sql: SET statement_timeout='5s'; SET lock_timeout='2s'
+      maximum-pool-size: 8
+  flyway:
+    enabled: ${MIGRATE:false}
+    user: ${SIMULATOR_MIGRATION_USER:simulator_owner}
+    password: ${SIMULATOR_MIGRATION_PASSWORD:}
+  lifecycle:
+    timeout-per-shutdown-phase: 30s
+mprp:
+  environment-id: ${MPRP_ENVIRONMENT_ID}
+  service-secret: ${MPRP_SERVICE_SECRET}
+  key-id: ${MPRP_SERVICE_KEY_ID:local-v1}
+  callback-origin: ${MPRP_CALLBACK_ORIGIN:http://web:8080}
+  worker: ${SIMULATOR_WORKER:false}
+
+  command: ${MPRP_COMMAND:serve}
+  purge-secret: ${MPRP_PURGE_SECRET:}
+  service-key-active-from: ${MPRP_SERVICE_KEY_ACTIVE_FROM}
+  service-key-expires-at: ${MPRP_SERVICE_KEY_EXPIRES_AT}
+  previous-service-key-id: ${MPRP_PREVIOUS_SERVICE_KEY_ID:}
+  previous-service-secret: ${MPRP_PREVIOUS_SERVICE_KEY_SECRET:}
+  previous-service-key-active-from: ${MPRP_PREVIOUS_SERVICE_KEY_ACTIVE_FROM:}
+  previous-service-key-expires-at: ${MPRP_PREVIOUS_SERVICE_KEY_EXPIRES_AT:}
